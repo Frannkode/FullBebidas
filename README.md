@@ -1,20 +1,43 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+Licorería Azul & Oro
+====================
 
-# Run and deploy your AI Studio app
+Pequeña tienda web de bebidas creada con React + Vite. Este repositorio contiene la UI, datos de ejemplo y las imágenes usadas por la demo local.
 
-This contains everything you need to run your app locally.
+Resumen
+-------
+- Stack: `React`, `Vite`, `TypeScript`, `TailwindCSS` (si está configurado).
+- Contenido: componentes en `components/`, datos de ejemplo en `data.ts`, imágenes en `public/drinks/`.
 
-View your app in AI Studio: https://ai.studio/apps/drive/15csvvAwBljIejBkGVcuZRj0fZilV52Py
+Cómo ejecutar localmente
+------------------------
+1. Instalar dependencias:
 
-## Run Locally
+```bash
+npm install
+```
 
-**Prerequisites:**  Node.js
+2. Levantar el servidor de desarrollo:
 
+```bash
+npx vite
+```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+Abre http://localhost:3000/ en tu navegador.
+
+Notas importantes
+-----------------
+- Las imágenes están en `public/drinks/` y los paths en `data.ts` apuntan a `/drinks/<nombre>.jpeg` para que Vite las sirva correctamente.
+- Evita usar caracteres especiales (por ejemplo `&`) en la ruta del proyecto cuando uses PowerShell, ya que puede romper scripts como `npm run dev`.
+
+Contribuir
+---------
+- Haz cambios en una rama nueva y abre un pull request.
+- Si agregas imágenes, súbelas a `public/drinks/` y actualiza `data.ts` con el nuevo nombre.
+
+Contacto
+-------
+Si quieres que yo suba cambios adicionales (CI, README más detallado, etc.), dime qué quieres y lo hago.
+
+Licencia
+--------
+Coloca aquí la licencia que prefieras (por ejemplo MIT) o mantenlo privado.
