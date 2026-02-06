@@ -41,38 +41,36 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
   };
 
   const handleCheckout = () => {
-    // Construcción del mensaje con formato limpio
-    let message = `🍷 *NUEVO PEDIDO - FULL BEBIDAS* 🍷\n\n`;
-    
+    // Construcción del mensaje con formato compatible y emojis comunes
+    let message = `🛒 *NUEVO PEDIDO - FULL BEBIDAS* 🛒\n\n`;
+
     // Sección Cliente
     message += `📋 *DATOS DE ENTREGA:*\n`;
-    message += `👤 *Cliente:* ${details.name}\n`;
-    message += `📞 *Teléfono:* ${details.phone}\n`;
-    message += `📍 *Dirección:* ${details.address}\n`;
-    
+    message += `👤 Cliente: ${details.name}\n`;
+    message += `📞 Teléfono: ${details.phone}\n`;
+    message += `📍 Dirección: ${details.address}\n`;
+
     if (details.instructions && details.instructions.trim() !== '') {
-      message += `📝 *Nota:* ${details.instructions}\n`;
+      message += `📝 Nota: ${details.instructions}\n`;
     }
 
     message += `\n🛒 *DETALLE DEL PEDIDO:*\n`;
 
-    // Sección Productos
+    // Sección Productos (usar guiones simples para compatibilidad)
     cartItems.forEach(item => {
       const subtotal = item.price * item.quantity;
-      // Formato: 2x Nombre Producto ($Precio)
-      message += `▪️ *${item.quantity}x* ${item.name} — ${formatPrice(subtotal)}\n`;
+      message += `- ${item.quantity}x ${item.name} — ${formatPrice(subtotal)}\n`;
     });
 
-    message += `\n〰️〰️〰️〰️〰️〰️〰️\n`;
-    message += `💰 *TOTAL A PAGAR: ${formatPrice(total)}*\n`;
-    message += `〰️〰️〰️〰️〰️〰️〰️\n\n`;
-    
-    message += `✅ _Pedido generado desde la Web App_`;
+    message += `\n-----------------------------\n`;
+    message += `💰 *TOTAL: ${formatPrice(total)}*\n\n`;
+    message += `✅ Pedido generado desde la Web App`;
 
-    // Codificar correctamente el mensaje para URL
+    // Codificar correctamente el mensaje para URL (UTF-8)
     const encodedMessage = encodeURIComponent(message);
-    const phoneNumber = "543482232529"; // Número actualizado
-    
+    // En wa.me no se incluye el '+'; usar formato internacional sin espacios
+    const phoneNumber = "543482440734"; // Nuevo número: +54 3482 440734
+
     window.open(`https://wa.me/${phoneNumber}?text=${encodedMessage}`, '_blank');
   };
 
