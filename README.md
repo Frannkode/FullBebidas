@@ -36,8 +36,7 @@ Contribuir
 
 Contacto
 -------
-Si quieres que yo suba cambios adicionales (CI, README más detallado, etc.), dime qué quieres y lo hago.
 
 Licencia
 --------
-Coloca aquí la licencia que prefieras (por ejemplo MIT) o mantenlo privado.
+
