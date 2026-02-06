@@ -111,7 +111,7 @@ export const products: Product[] = [
     category: "Vinos",
     price: 2780,
     description: "Blend tinto equilibrado, perfecto para la mesa diaria.",
-    image: "/drinks/canciller112.jpeg"
+    image: "/drinks/vinocancilierblend.jpeg"
   },
   {
     id: 15,
