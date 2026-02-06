@@ -42,7 +42,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
 
   const handleCheckout = () => {
     // Construcción del mensaje con formato limpio
-    let message = `🍷 *NUEVO PEDIDO - LICORERÍA AZUL & ORO* 🍷\n\n`;
+    let message = `🍷 *NUEVO PEDIDO - FULL BEBIDAS* 🍷\n\n`;
     
     // Sección Cliente
     message += `📋 *DATOS DE ENTREGA:*\n`;

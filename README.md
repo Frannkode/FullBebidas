@@ -3,7 +3,7 @@
   Archivo generado por el asistente bajo petición del autor del repo.
 -->
 
-# 🔶 Licorería Azul & Oro — Full Bebidas
+# 🔶 Full Bebidas
 
 <p align="center">
   <img src="https://img.shields.io/badge/React-19.2.4-61DAFB?logo=react&logoColor=white" alt="React" />
