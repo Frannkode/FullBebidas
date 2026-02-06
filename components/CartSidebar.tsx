@@ -41,22 +41,22 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
   };
 
   const handleCheckout = () => {
-    // Construcción del mensaje con formato compatible y emojis comunes
+    // Construcción del mensaje en UTF-8 con emojis Unicode reales
+    // Usar únicamente encodeURIComponent una vez al final
     let message = `🛒 *NUEVO PEDIDO - FULL BEBIDAS* 🛒\n\n`;
 
     // Sección Cliente
-    message += `📋 *DATOS DE ENTREGA:*\n`;
+    message += `*DATOS DE ENTREGA:*\n`;
     message += `👤 Cliente: ${details.name}\n`;
     message += `📞 Teléfono: ${details.phone}\n`;
     message += `📍 Dirección: ${details.address}\n`;
 
     if (details.instructions && details.instructions.trim() !== '') {
-      message += `📝 Nota: ${details.instructions}\n`;
+      message += `\n📝 Nota: ${details.instructions}\n`;
     }
 
-    message += `\n🛒 *DETALLE DEL PEDIDO:*\n`;
+    message += `\n📦 *DETALLE DEL PEDIDO:*\n`;
 
-    // Sección Productos (usar guiones simples para compatibilidad)
     cartItems.forEach(item => {
       const subtotal = item.price * item.quantity;
       message += `- ${item.quantity}x ${item.name} — ${formatPrice(subtotal)}\n`;
@@ -66,12 +66,11 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
     message += `💰 *TOTAL: ${formatPrice(total)}*\n\n`;
     message += `✅ Pedido generado desde la Web App`;
 
-    // Codificar correctamente el mensaje para URL (UTF-8)
+    // Aplicar encodeURIComponent solo una vez al mensaje completo
     const encodedMessage = encodeURIComponent(message);
-    // En wa.me no se incluye el '+'; usar formato internacional sin espacios
-    const phoneNumber = "543482440734"; // Nuevo número: +54 3482 440734
-
-    window.open(`https://wa.me/${phoneNumber}?text=${encodedMessage}`, '_blank');
+    const phoneNumber = "543482440734"; // +54 3482 440734
+    const url = `https://api.whatsapp.com/send?phone=${phoneNumber}&text=${encodedMessage}`;
+    window.open(url, '_blank');
   };
 
   return (
