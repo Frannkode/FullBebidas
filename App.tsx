@@ -37,13 +37,10 @@ const App: React.FC = () => {
   };
 
   const updateQuantity = (id: number, delta: number) => {
-    setCartItems(prev => prev.map(item => {
-      if (item.id === id) {
-        const newQty = item.quantity + delta;
-        return newQty > 0 ? { ...item, quantity: newQty } : item;
-      }
-      return item;
-    }));
+    setCartItems(prev => prev
+      .map(item => item.id === id ? { ...item, quantity: item.quantity + delta } : item)
+      .filter(item => item.quantity > 0)
+    );
   };
 
   const filteredProducts = products.filter(p => {
