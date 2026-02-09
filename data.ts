@@ -45,7 +45,7 @@ export const products: Product[] = [
     id: 6,
     name: "Fernet Buhero Negro 700cc",
     category: "Aperitivos",
-    price: 9000,
+    price: 9100,
     description: "Un fernet con personalidad, intenso y de gran calidad.",
     image: "/drinks/fernetbuhero700.jpeg"
   },
@@ -93,7 +93,7 @@ export const products: Product[] = [
     id: 12,
     name: "Viñas de Balbo Tinto 1.125cc",
     category: "Vinos",
-    price: 2380,
+    price: 2400,
     description: "Vino de mesa tinto, tradicional y rendidor.",
     image: "/drinks/vinabalbo.jpeg"
   },
@@ -109,7 +109,7 @@ export const products: Product[] = [
     id: 14,
     name: "Canciller Blend 1.125cc",
     category: "Vinos",
-    price: 2780,
+    price: 2550,
     description: "Blend tinto equilibrado, perfecto para la mesa diaria.",
     image: "/drinks/vinocancilierblend.jpeg"
   },
