@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Product } from '../types';
+import { hasWholesale, isLowStock } from '../utils/pricing';
 
 interface ProductCardProps {
   product: Product;
@@ -29,6 +30,14 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
         <span className="px-2 py-0.5 bg-white/60 backdrop-blur-md rounded-md text-[8px] font-extrabold uppercase tracking-widest text-brand-primary shadow-sm border border-white/50">
           {product.category}
         </span>
+        <div className="mt-1 flex gap-1">
+          {isLowStock(product) && (
+            <span className="px-1 py-0.5 text-[9px] bg-red-100 text-red-700 rounded font-bold">Últimas unidades</span>
+          )}
+          {hasWholesale(product) && (
+            <span className="px-1 py-0.5 text-[9px] bg-amber-100 text-amber-800 rounded font-bold">Precio mayorista</span>
+          )}
+        </div>
       </div>
 
       {/* Image Container */}
@@ -69,9 +78,15 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
         </p>
 
         <div className="mt-auto flex items-center justify-between border-t border-slate-200/30 pt-2">
-          <span className="font-extrabold text-base text-brand-dark">
-            {formatPrice(product.price)}
-          </span>
+          <div>
+            <span className="font-extrabold text-base text-brand-dark">
+              {formatPrice(product.price)}
+            </span>
+            {/* Mostrar precio unitario sugerido para packs (si aplica) */}
+            {hasWholesale(product) && (
+              <div className="text-[10px] text-slate-500 font-medium">Precio mayorista disponible</div>
+            )}
+          </div>
           {/* Mobile Fallback Button */}
           <button 
             onClick={() => onAddToCart(product)}

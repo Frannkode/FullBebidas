@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CartItem, UserDetails } from '../types';
 import { XMarkIcon, WhatsAppIcon } from './Icons';
+import { computeBestPrice } from '../utils/pricing';
 
 interface CartSidebarProps {
   isOpen: boolean;
@@ -24,7 +25,13 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
     instructions: ''
   });
 
-  const total = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const total = cartItems.reduce((sum, item) => {
+    try {
+      return sum + computeBestPrice(item, item.quantity).total;
+    } catch {
+      return sum + item.price * item.quantity;
+    }
+  }, 0);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('es-AR', {
@@ -107,7 +114,9 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
               <p className="font-medium text-slate-500">Tu carrito está esperando bebidas.</p>
             </div>
           ) : (
-            cartItems.map(item => (
+            cartItems.map(item => {
+              const pricing = computeBestPrice(item, item.quantity);
+              return (
               <div key={item.id} className="flex gap-4 p-3 rounded-2xl bg-white/50 border border-white/60 hover:bg-white/80 transition-colors shadow-sm">
                 <div className="w-16 h-16 bg-white rounded-xl p-1 shrink-0 flex items-center justify-center overflow-hidden">
                   <img src={item.image} alt={item.name} className="w-full h-full object-contain mix-blend-multiply" />
@@ -116,6 +125,11 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
                   <div>
                     <h4 className="font-bold text-slate-800 text-sm line-clamp-1">{item.name}</h4>
                     <p className="text-slate-400 text-xs">{item.category}</p>
+                    <div className="mt-1 flex gap-2">
+                      {pricing.messages.map((m, idx) => (
+                        <span key={idx} className="text-[10px] bg-white/60 border border-white/40 rounded px-2 py-0.5 text-slate-600">{m}</span>
+                      ))}
+                    </div>
                   </div>
                   <div className="flex items-center justify-between mt-2">
                     <div className="flex items-center gap-2 bg-white rounded-lg p-1 shadow-sm">
@@ -133,11 +147,16 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
                         +
                       </button>
                     </div>
-                    <span className="font-bold text-brand-primary text-sm">{formatPrice(item.price * item.quantity)}</span>
+                    <div className="text-right">
+                      <span className="font-bold text-brand-primary text-sm">{formatPrice(pricing.total)}</span>
+                      {pricing.appliedWholesale && (
+                        <div className="text-[10px] text-slate-500">{formatPrice(pricing.perUnit)} c/u</div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-            ))
+            )})
           )}
         </div>
 
