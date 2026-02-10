@@ -177,7 +177,7 @@ export const products: Product[] = [
     id: 14,
     name: "Canciller Blend 1.125cc",
     category: "Vinos",
-    price: 8600,
+    price: 2750,
     description: "Blend tinto equilibrado, perfecto para la mesa diaria.",
     image: "/drinks/vinocancilierblend.jpeg"
   },
@@ -185,7 +185,7 @@ export const products: Product[] = [
     id: 15,
     name: "Combo Smirnoff + Baggio",
     category: "Combos",
-    price: 10100,
+    price: 9500,
     description: "Smirnoff 700cc + Baggio Durazno 1L. ¡Listo para la previa!",
     image: "/drinks/combosmirnoffbaggio.jpeg"
   }
