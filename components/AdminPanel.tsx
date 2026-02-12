@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Product, WholesalePrice } from '../types';
 import { getProducts, updateProduct, initializeProducts } from '../firebase/products';
 import { products as initialProducts } from '../data';
-import { TrashIcon, PlusIcon, SaveIcon, RefreshIcon } from './Icons';
+import { TrashIcon, PlusIcon, SaveIcon, RefreshIcon, TerminalIcon, XMarkIcon } from './Icons';
+import { db } from '../firebase/config';
+import { collection, addDoc, deleteDoc, doc } from 'firebase/firestore';
 
 interface AdminPanelProps {
   onLogout: () => void;
@@ -16,6 +18,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
   const [editForm, setEditForm] = useState<Partial<Product>>({});
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [filter, setFilter] = useState('');
+  const [showConsole, setShowConsole] = useState(false);
+  const [consoleOutput, setConsoleOutput] = useState<string[]>([]);
+  const [consoleInput, setConsoleInput] = useState('');
 
   useEffect(() => {
     loadProducts();
@@ -33,6 +38,90 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
       setProducts(freshProducts.length > 0 ? freshProducts : initialProducts);
     }
     setLoading(false);
+  };
+
+  // Console functions
+  const addProduct = async (product: Product) => {
+    try {
+      const docRef = await addDoc(collection(db, 'products'), product);
+      setConsoleOutput(prev => [...prev, `✓ Producto agregado: ${product.name} (ID: ${docRef.id})`]);
+      loadProducts();
+    } catch (e: any) {
+      setConsoleOutput(prev => [...prev, `✗ Error: ${e.message}`]);
+    }
+  };
+
+  const deleteProduct = async (productId: number) => {
+    try {
+      const q = collection(db, 'products');
+      const snapshot = await getProducts();
+      const toDelete = snapshot.find(p => p.id === productId);
+      if (toDelete) {
+        await deleteDoc(doc(db, 'products', `product_${productId}`));
+        setConsoleOutput(prev => [...prev, `✓ Producto ID ${productId} eliminado`]);
+        loadProducts();
+      }
+    } catch (e: any) {
+      setConsoleOutput(prev => [...prev, `✗ Error: ${e.message}`]);
+    }
+  };
+
+  const runCommand = async () => {
+    if (!consoleInput.trim()) return;
+    
+    setConsoleOutput(prev => [...prev, `> ${consoleInput}`]);
+    const input = consoleInput.trim().toLowerCase();
+    setConsoleInput('');
+
+    try {
+      // Parse simple commands
+      if (input.startsWith('add ')) {
+        // add {name} {price} {category}
+        const parts = input.slice(4).split(' ');
+        if (parts.length >= 3) {
+          const name = parts.slice(0, -2).join(' ');
+          const price = parseInt(parts[parts.length - 2]);
+          const category = parts[parts.length - 1];
+          const newProduct: Product = {
+            id: Date.now(),
+            name,
+            price,
+            category,
+            description: 'Nuevo producto',
+            image: '/drinks/placeholder.jpeg',
+            stock: 0
+          };
+          await addProduct(newProduct);
+        } else {
+          setConsoleOutput(prev => [...prev, 'Usage: add {name} {price} {category}']);
+        }
+      } else if (input === 'list') {
+        const allProducts = await getProducts();
+        setConsoleOutput(prev => [...prev, `Productos (${allProducts.length}):`, ...allProducts.map(p => `  - ${p.id}: ${p.name} (${p.price})`)]);
+      } else if (input.startsWith('delete ')) {
+        const id = parseInt(input.slice(7));
+        if (!isNaN(id)) {
+          await deleteProduct(id);
+        } else {
+          setConsoleOutput(prev => [...prev, 'Usage: delete {id}']);
+        }
+      } else if (input === 'help') {
+        setConsoleOutput(prev => [...prev, 
+          'Comandos disponibles:',
+          '  add {name} {price} {category} - Agregar producto',
+          '  list - Listar productos',
+          '  delete {id} - Eliminar producto',
+          '  clear - Limpiar consola',
+          '  help - Mostrar ayuda'
+        ]);
+      } else if (input === 'clear') {
+        setConsoleOutput([]);
+      } else {
+        setConsoleOutput(prev => [...prev, `Comando desconocido: ${input}. Escribe "help" para ver comandos.`]);
+      }
+    } catch (e: any) {
+      setConsoleOutput(prev => [...prev, `✗ Error: ${e.message}`]);
+    }
   };
 
   const handleEdit = (product: Product) => {
@@ -129,7 +218,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
               }}
               className="px-3 py-1.5 bg-yellow-500/20 border border-yellow-500/50 text-yellow-200 rounded-lg text-xs hover:bg-yellow-500/30 transition-colors"
             >
-              Reiniciar desde código
+              Consola
             </button>
           </div>
           <button
@@ -151,6 +240,51 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
           {message.text}
         </div>
       )}
+
+      {/* Console Panel */}
+      <div className={`fixed bottom-4 right-4 z-50 transition-all ${showConsole ? 'w-96' : 'w-auto'}`}>
+        {!showConsole ? (
+          <button
+            onClick={() => setShowConsole(true)}
+            className="p-3 bg-slate-800 border border-slate-600 rounded-full text-white hover:bg-slate-700 transition-colors"
+            title="Abrir consola"
+          >
+            <TerminalIcon className="w-5 h-5" />
+          </button>
+        ) : (
+          <div className="bg-slate-900 border border-slate-600 rounded-xl overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-3 py-2 bg-slate-800 border-b border-slate-700">
+              <span className="text-xs font-mono text-green-400">Console Firebase</span>
+              <button onClick={() => setShowConsole(false)} className="text-slate-400 hover:text-white">
+                <XMarkIcon className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="h-48 overflow-y-auto p-2 font-mono text-xs">
+              {consoleOutput.map((line, i) => (
+                <div key={i} className={`mb-1 ${line.startsWith('✓') ? 'text-green-400' : line.startsWith('✗') ? 'text-red-400' : line.startsWith('>') ? 'text-yellow-400' : 'text-slate-300'}`}>
+                  {line}
+                </div>
+              ))}
+            </div>
+            <div className="flex border-t border-slate-700">
+              <input
+                type="text"
+                value={consoleInput}
+                onChange={(e) => setConsoleInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && runCommand()}
+                placeholder="Comando (help para ver)"
+                className="flex-1 px-3 py-2 bg-transparent text-white text-xs font-mono placeholder:text-slate-500 focus:outline-none"
+              />
+              <button
+                onClick={runCommand}
+                className="px-3 py-2 bg-green-600 text-white text-xs hover:bg-green-500"
+              >
+                &#9654;
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Search */}
       <div className="max-w-7xl mx-auto px-4 py-6">
