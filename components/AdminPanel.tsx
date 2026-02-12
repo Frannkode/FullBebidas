@@ -124,6 +124,36 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
     }
   };
 
+  // Export products to data.ts format
+  const exportProducts = async () => {
+    const dbProducts = await getProducts();
+    const exportData = dbProducts.map(p => `  {
+    id: ${p.id},
+    name: "${p.name}",
+    category: "${p.category}",
+    price: ${p.price},
+    description: "${p.description}",
+    image: "${p.image}",
+    stock: ${p.stock ?? 0}${p.wholesalePrices && p.wholesalePrices.length > 0 ? `,
+    wholesalePrices: [
+${p.wholesalePrices.map(wp => `      { qty: ${wp.qty}, price: ${wp.price} }`).join(',\n')}
+    ]` : ''}
+  }`).join(',\n');
+    
+    const fileContent = `import { Product } from './types';
+
+export const products: Product[] = [\n${exportData}\n];`;
+    
+    const blob = new Blob([fileContent], { type: 'text/typescript' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'data.ts';
+    a.click();
+    URL.revokeObjectURL(url);
+    setConsoleOutput(prev => [...prev, `✓ Exportado ${dbProducts.length} productos a data.ts`]);
+  };
+
   const handleEdit = (product: Product) => {
     setEditingId(product.id);
     setEditForm({ ...product });
@@ -211,14 +241,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
               <RefreshIcon className="w-5 h-5 text-white" />
             </button>
             <button
-              onClick={() => {
-                if (confirm('¿Reiniciar productos desde data.ts? Esto actualizará todos los productos.')) {
-                  loadProducts(true);
-                }
-              }}
+              onClick={() => exportProducts()}
               className="px-3 py-1.5 bg-yellow-500/20 border border-yellow-500/50 text-yellow-200 rounded-lg text-xs hover:bg-yellow-500/30 transition-colors"
             >
-              Consola
+              Exportar data.ts
             </button>
           </div>
           <button
