@@ -21,15 +21,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
     loadProducts();
   }, []);
 
-  const loadProducts = async () => {
+  const loadProducts = async (forceReinit = false) => {
     setLoading(true);
     const dbProducts = await getProducts();
-    if (dbProducts.length > 0) {
+    if (dbProducts.length > 0 && !forceReinit) {
       setProducts(dbProducts);
     } else {
       // Initialize with data.ts products
       await initializeProducts(initialProducts);
-      setProducts(initialProducts);
+      const freshProducts = await getProducts();
+      setProducts(freshProducts.length > 0 ? freshProducts : initialProducts);
     }
     setLoading(false);
   };
@@ -87,6 +88,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
     }).format(price);
   };
 
+  // Helper para que el input no muestre 0 cuando está vacío
+  const getNumValue = (val: number | undefined): string => {
+    if (val === undefined || val === 0) return '';
+    return String(val);
+  };
+
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(filter.toLowerCase()) ||
     p.category.toLowerCase().includes(filter.toLowerCase())
@@ -108,11 +115,21 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
           <div className="flex items-center gap-4">
             <h1 className="text-xl font-bold text-white">Admin Panel - Full Bebidas</h1>
             <button
-              onClick={loadProducts}
+              onClick={() => loadProducts()}
               className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
               title="Recargar productos"
             >
               <RefreshIcon className="w-5 h-5 text-white" />
+            </button>
+            <button
+              onClick={() => {
+                if (confirm('¿Reiniciar productos desde data.ts? Esto actualizará todos los productos.')) {
+                  loadProducts(true);
+                }
+              }}
+              className="px-3 py-1.5 bg-yellow-500/20 border border-yellow-500/50 text-yellow-200 rounded-lg text-xs hover:bg-yellow-500/30 transition-colors"
+            >
+              Reiniciar desde código
             </button>
           </div>
           <button
@@ -202,18 +219,26 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
                           <label className="block text-white/60 text-xs mb-1">Precio Minorista</label>
                           <input
                             type="number"
-                            value={editForm.price || 0}
-                            onChange={(e) => handleInputChange('price', Number(e.target.value))}
-                            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                            value={getNumValue(editForm.price)}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              handleInputChange('price', val === '' ? 0 : Number(val));
+                            }}
+                            placeholder="Precio"
+                            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-white/30"
                           />
                         </div>
                         <div>
                           <label className="block text-white/60 text-xs mb-1">Stock</label>
                           <input
                             type="number"
-                            value={editForm.stock || 0}
-                            onChange={(e) => handleInputChange('stock', Number(e.target.value))}
-                            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                            value={getNumValue(editForm.stock)}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              handleInputChange('stock', val === '' ? 0 : Number(val));
+                            }}
+                            placeholder="Stock"
+                            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-white/30"
                           />
                         </div>
                       </div>
@@ -245,18 +270,18 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
                             <div key={index} className="flex items-center gap-2">
                               <input
                                 type="number"
-                                value={wp.qty}
-                                onChange={(e) => handleWholesaleChange(index, 'qty', Number(e.target.value))}
+                                value={getNumValue(wp.qty)}
+                                onChange={(e) => handleWholesaleChange(index, 'qty', e.target.value === '' ? 0 : Number(e.target.value))}
                                 placeholder="Cantidad"
-                                className="w-24 px-2 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm"
+                                className="w-24 px-2 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm placeholder:text-white/30"
                               />
                               <span className="text-white/40">x</span>
                               <input
                                 type="number"
-                                value={wp.price}
-                                onChange={(e) => handleWholesaleChange(index, 'price', Number(e.target.value))}
+                                value={getNumValue(wp.price)}
+                                onChange={(e) => handleWholesaleChange(index, 'price', e.target.value === '' ? 0 : Number(e.target.value))}
                                 placeholder="Precio total"
-                                className="flex-1 px-2 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm"
+                                className="flex-1 px-2 py-1 bg-white/10 border border-white/20 rounded-lg text-white text-sm placeholder:text-white/30"
                               />
                               <button
                                 onClick={() => removeWholesalePrice(index)}
@@ -311,11 +336,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
                     <h3 className="text-white font-semibold truncate">{product.name}</h3>
                     <p className="text-white/60 text-sm truncate">{product.description}</p>
                     <div className="flex items-center gap-4 mt-1">
-                      <span className="text-green-400 font-bold">{formatPrice(product.price)}</span>
-                      {product.wholesalePrices && product.wholesalePrices.length > 0 && (
+                      <span className="text-green-400 font-bold">{product.price > 0 ? formatPrice(product.price) : 'Sin precio'}</span>
+                      {product.wholesalePrices && product.wholesalePrices.length > 0 ? (
                         <span className="text-white/40 text-xs">
                           {product.wholesalePrices.length} precio(s) mayorista(s)
                         </span>
+                      ) : (
+                        <span className="text-white/20 text-xs italic">Sin precios mayoristas</span>
                       )}
                     </div>
                   </div>

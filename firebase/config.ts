@@ -15,7 +15,7 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 
 // Admin password hash (simple hash for client-side protection)
-export const ADMIN_PASSWORD_HASH = hashPassword('nico');
+export const ADMIN_PASSWORD_HASH = hashPassword('Mn74c98dxw');
 
 
 // Simple hash function for password
