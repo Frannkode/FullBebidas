@@ -1,23 +1,74 @@
 import React, { useState, useEffect } from 'react';
-import { products } from './data';
+import { products as initialProducts } from './data';
 import { CartItem, Product } from './types';
 import ProductCard from './components/ProductCard';
 import CartSidebar from './components/CartSidebar';
 import { ShoppingCartIcon, WhatsAppIcon } from './components/Icons';
 import HorizontalScroll from './components/HorizontalScroll';
+import AdminLogin from './components/AdminLogin';
+import AdminPanel from './components/AdminPanel';
+import { getProducts, initializeProducts } from './firebase/products';
 
 const App: React.FC = () => {
+  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [loading, setLoading] = useState(true);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
   const [scrolled, setScrolled] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
+
+  // Check for admin auth on mount
+  useEffect(() => {
+    const adminAuth = localStorage.getItem('admin_auth');
+    if (adminAuth === 'true') {
+      setIsAdmin(true);
+    }
+  }, []);
+
+  // Check URL for admin route
+  useEffect(() => {
+    if (window.location.pathname === '/admin') {
+      setShowAdmin(true);
+    }
+  }, []);
+
+  // Load products from Firebase
+  useEffect(() => {
+    const loadProducts = async () => {
+      const dbProducts = await getProducts();
+      if (dbProducts.length > 0) {
+        setProducts(dbProducts);
+      } else {
+        // Initialize with data.ts products
+        await initializeProducts(initialProducts);
+        setProducts(initialProducts);
+      }
+      setLoading(false);
+    };
+    loadProducts();
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  const handleAdminLogin = () => {
+    setIsAdmin(true);
+    setShowAdmin(true);
+    window.history.pushState({}, '', '/admin');
+  };
+
+  const handleAdminLogout = () => {
+    localStorage.removeItem('admin_auth');
+    setIsAdmin(false);
+    setShowAdmin(false);
+    window.history.pushState({}, '', '/');
+  };
 
   const categories = ['Todos', ...Array.from(new Set(products.map(p => p.category)))];
   const uniqueCategories = Array.from(new Set(products.map(p => p.category)));
@@ -54,6 +105,26 @@ const App: React.FC = () => {
   // Helper to check if we are in "Browse Mode" (No search, viewing All)
   const isBrowseMode = selectedCategory === 'Todos' && !searchTerm;
 
+  // Show Admin Panel
+  if (showAdmin) {
+    if (!isAdmin) {
+      return <AdminLogin onLogin={handleAdminLogin} />;
+    }
+    return <AdminPanel onLogout={handleAdminLogout} />;
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-300 via-purple-300 to-indigo-300 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white/80 font-semibold">Cargando productos...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen relative overflow-hidden">
       {/* Ambient Background Blobs */}
@@ -66,12 +137,12 @@ const App: React.FC = () => {
       {/* Glass Navbar */}
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out ${scrolled ? 'glass shadow-lg py-3 mx-4 mt-2 rounded-2xl' : 'bg-transparent py-6'}`}>
         <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
-          <div className="flex items-center">
+          <div className="flex items-center gap-4">
              <img 
-               src="https://i.ibb.co/Pvntrx96/logo-1.png" 
-               alt="Full Bebidas" 
-               className="h-12 md:h-16 w-auto object-contain drop-shadow-md hover:scale-105 transition-transform"
-             />
+                src="https://i.ibb.co/Pvntrx96/logo-1.png" 
+                alt="Full Bebidas" 
+                className="h-12 md:h-16 w-auto object-contain drop-shadow-md hover:scale-105 transition-transform"
+              />
           </div>
           
           <button 
@@ -228,6 +299,15 @@ const App: React.FC = () => {
           ¿Tienes dudas?
         </span>
         <WhatsAppIcon className="w-8 h-8 text-white" />
+      </a>
+
+      {/* Admin Link (hidden, for development) */}
+      <a
+        href="/admin"
+        className="fixed bottom-6 left-6 z-40 flex items-center justify-center w-10 h-10 bg-slate-500/20 border border-slate-500/50 rounded-full hover:bg-slate-500/30 transition-all opacity-0 pointer-events-none"
+        aria-label="Admin"
+      >
+        <span className="text-xs text-slate-400">⚙️</span>
       </a>
     </div>
   );
