@@ -4,7 +4,7 @@ import { getProducts, updateProduct, initializeProducts } from '../firebase/prod
 import { products as initialProducts } from '../data';
 import { TrashIcon, PlusIcon, SaveIcon, RefreshIcon, TerminalIcon, XMarkIcon } from './Icons';
 import { db } from '../firebase/config';
-import { collection, addDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
 
 interface AdminPanelProps {
   onLogout: () => void;
@@ -21,6 +21,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
   const [showConsole, setShowConsole] = useState(false);
   const [consoleOutput, setConsoleOutput] = useState<string[]>([]);
   const [consoleInput, setConsoleInput] = useState('');
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importText, setImportText] = useState('');
 
   useEffect(() => {
     loadProducts();
@@ -154,6 +156,99 @@ export const products: Product[] = [\n${exportData}\n];`;
     setConsoleOutput(prev => [...prev, `✓ Exportado ${dbProducts.length} productos a data.ts`]);
   };
 
+  // Add single product to Firebase
+  const addProductToFirebase = async (product: Product) => {
+    try {
+      const docRef = doc(db, 'products', `product_${product.id}`);
+      await setDoc(docRef, product);
+      setConsoleOutput(prev => [...prev, `✓ Producto agregado: ${product.name}`]);
+      loadProducts();
+    } catch (e: any) {
+      setConsoleOutput(prev => [...prev, `✗ Error: ${e.message}`]);
+    }
+  };
+
+  // Import products from data.ts text
+  const importProducts = async () => {
+    try {
+      // Parse the products array from the text
+      const productsMatch = importText.match(/export\s+const\s+products:\s*Product\[\]\s*=\s*\[([\s\S]*)\];/);
+      if (!productsMatch) {
+        setConsoleOutput(prev => [...prev, '✗ No se encontró el array de productos']);
+        return;
+      }
+      
+      const productsText = productsMatch[1];
+      // Simple parsing - find each product block
+      const productBlocks = productsText.match(/\{[\s\S]*?id:\s*\d+,[\s\S]*?\}/g) || [];
+      
+      const importedProducts: Product[] = productBlocks.map(block => {
+        const product: any = {};
+        
+        // Extract id
+        const idMatch = block.match(/id:\s*(\d+)/);
+        product.id = idMatch ? parseInt(idMatch[1]) : Date.now();
+        
+        // Extract name
+        const nameMatch = block.match(/name:\s*"([^"]+)"/);
+        product.name = nameMatch ? nameMatch[1] : 'Sin nombre';
+        
+        // Extract category
+        const catMatch = block.match(/category:\s*"([^"]+)"/);
+        product.category = catMatch ? catMatch[1] : 'Sin categoría';
+        
+        // Extract price
+        const priceMatch = block.match(/price:\s*(\d+)/);
+        product.price = priceMatch ? parseInt(priceMatch[1]) : 0;
+        
+        // Extract description
+        const descMatch = block.match(/description:\s*"([^"]+)"/);
+        product.description = descMatch ? descMatch[1] : '';
+        
+        // Extract image
+        const imgMatch = block.match(/image:\s*"([^"]+)"/);
+        product.image = imgMatch ? imgMatch[1] : '';
+        
+        // Extract stock
+        const stockMatch = block.match(/stock:\s*(\d+)/);
+        product.stock = stockMatch ? parseInt(stockMatch[1]) : 0;
+        
+        // Extract wholesalePrices if exists
+        const wpMatch = block.match(/wholesalePrices:\s*\[([\s\S]*?)\]/);
+        if (wpMatch) {
+          const wpBlocks = wpMatch[1].match(/\{[^}]+\}/g) || [];
+          product.wholesalePrices = wpBlocks.map(wpBlock => {
+            const qtyMatch = wpBlock.match(/qty:\s*(\d+)/);
+            const priceMatch = wpBlock.match(/price:\s*(\d+)/);
+            return {
+              qty: qtyMatch ? parseInt(qtyMatch[1]) : 0,
+              price: priceMatch ? parseInt(priceMatch[1]) : 0
+            };
+          });
+        }
+        
+        return product as Product;
+      });
+      
+      // Upload to Firebase (merge: true adds new or updates existing, doesn't delete)
+      let addedCount = 0;
+      for (const p of importedProducts) {
+        const docRef = doc(db, 'products', `product_${p.id}`);
+        await setDoc(docRef, p, { merge: true });
+        addedCount++;
+      }
+      
+      setConsoleOutput(prev => [...prev, `✓ Importados ${addedCount} productos a Firebase (no se borraron los existentes)`]);
+      
+      setConsoleOutput(prev => [...prev, `✓ Importados ${importedProducts.length} productos a Firebase`]);
+      setShowImportModal(false);
+      setImportText('');
+      loadProducts();
+    } catch (e: any) {
+      setConsoleOutput(prev => [...prev, `✗ Error: ${e.message}`]);
+    }
+  };
+
   const handleEdit = (product: Product) => {
     setEditingId(product.id);
     setEditForm({ ...product });
@@ -246,6 +341,12 @@ export const products: Product[] = [\n${exportData}\n];`;
             >
               Exportar data.ts
             </button>
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="px-3 py-1.5 bg-blue-500/20 border border-blue-500/50 text-blue-200 rounded-lg text-xs hover:bg-blue-500/30 transition-colors"
+            >
+              Importar data.ts
+            </button>
           </div>
           <button
             onClick={onLogout}
@@ -264,6 +365,52 @@ export const products: Product[] = [\n${exportData}\n];`;
             : 'bg-red-500/20 border border-red-500/50 text-red-200'
         }`}>
           {message.text}
+        </div>
+      )}
+
+      {/* Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-slate-900 border border-slate-600 rounded-xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700">
+              <h2 className="text-white font-bold">Importar productos desde data.ts</h2>
+              <button onClick={() => setShowImportModal(false)} className="text-slate-400 hover:text-white">
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 overflow-auto max-h-[60vh]">
+              <p className="text-slate-400 text-sm mb-2">Copiá el contenido de tu archivo data.ts y pegalo aquí:</p>
+              <textarea
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+                placeholder={`import { Product } from './types';
+
+export const products: Product[] = [
+  {
+    id: 1,
+    name: "Producto",
+    ...
+  }
+];`}
+                className="w-full h-64 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-green-400 font-mono text-xs resize-none"
+              />
+            </div>
+            <div className="flex justify-end gap-2 px-4 py-3 border-t border-slate-700">
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="px-4 py-2 bg-slate-700 text-white rounded-lg text-sm hover:bg-slate-600"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={importProducts}
+                disabled={!importText.trim()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-500 disabled:opacity-50"
+              >
+                Importar a Firebase
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
