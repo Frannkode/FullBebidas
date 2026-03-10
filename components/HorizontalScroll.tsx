@@ -31,13 +31,20 @@ const HorizontalScroll: React.FC<HorizontalScrollProps> = ({ className = '', chi
     e.preventDefault();
     const x = e.pageX - slider.current.offsetLeft;
     const walk = (x - startX) * 2; // scroll speed
-    slider.current.scrollLeft = scrollLeft - walk;
+    
+    // Smooth out updates with requestAnimationFrame
+    const targetScroll = scrollLeft - walk;
+    window.requestAnimationFrame(() => {
+      if (slider.current) {
+        slider.current.scrollLeft = targetScroll;
+      }
+    });
   };
 
   return (
     <div
       ref={slider}
-      className={`${className} cursor-grab active:cursor-grabbing select-none`}
+      className={`${className} cursor-grab active:cursor-grabbing select-none will-change-scroll`}
       onMouseDown={handleMouseDown}
       onMouseLeave={handleMouseLeave}
       onMouseUp={handleMouseUp}

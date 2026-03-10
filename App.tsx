@@ -147,10 +147,11 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen relative overflow-hidden">
       {/* Ambient Background Blobs */}
-      <div className="fixed inset-0 w-full h-full pointer-events-none z-[-1]">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-32 left-1/3 w-96 h-96 bg-indigo-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
+      {/* Ambient Background Blobs - Optimized for performance */}
+      <div className="fixed inset-0 w-full h-full pointer-events-none z-[-1] overflow-hidden">
+        <div className="absolute top-0 left-1/4 w-72 h-72 bg-blue-300/20 rounded-full filter blur-[80px] animate-blob will-change-transform"></div>
+        <div className="absolute top-0 right-1/4 w-72 h-72 bg-purple-300/20 rounded-full filter blur-[80px] animate-blob animation-delay-2000 will-change-transform"></div>
+        <div className="absolute -bottom-32 left-1/3 w-72 h-72 bg-indigo-300/20 rounded-full filter blur-[80px] animate-blob animation-delay-4000 will-change-transform"></div>
       </div>
 
       {/* Glass Navbar */}
