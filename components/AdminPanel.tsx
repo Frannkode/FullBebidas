@@ -70,7 +70,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
 
   const runCommand = async () => {
     if (!consoleInput.trim()) return;
-    
+
     setConsoleOutput(prev => [...prev, `> ${consoleInput}`]);
     const input = consoleInput.trim().toLowerCase();
     setConsoleInput('');
@@ -108,7 +108,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
           setConsoleOutput(prev => [...prev, 'Usage: delete {id}']);
         }
       } else if (input === 'help') {
-        setConsoleOutput(prev => [...prev, 
+        setConsoleOutput(prev => [...prev,
           'Comandos disponibles:',
           '  add {name} {price} {category} - Agregar producto',
           '  list - Listar productos',
@@ -141,11 +141,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
 ${p.wholesalePrices.map(wp => `      { qty: ${wp.qty}, price: ${wp.price} }`).join(',\n')}
     ]` : ''}
   }`).join(',\n');
-    
+
     const fileContent = `import { Product } from './types';
 
 export const products: Product[] = [\n${exportData}\n];`;
-    
+
     const blob = new Blob([fileContent], { type: 'text/typescript' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -177,59 +177,61 @@ export const products: Product[] = [\n${exportData}\n];`;
         setConsoleOutput(prev => [...prev, '✗ No se encontró el array de productos']);
         return;
       }
-      
+
       const productsText = productsMatch[1];
       // Simple parsing - find each product block
       const productBlocks = productsText.match(/\{[\s\S]*?id:\s*\d+,[\s\S]*?\}/g) || [];
-      
+
       const importedProducts: Product[] = productBlocks.map(block => {
         const product: any = {};
-        
+
         // Extract id
         const idMatch = block.match(/id:\s*(\d+)/);
         product.id = idMatch ? parseInt(idMatch[1]) : Date.now();
-        
+
         // Extract name
         const nameMatch = block.match(/name:\s*"([^"]+)"/);
         product.name = nameMatch ? nameMatch[1] : 'Sin nombre';
-        
+
         // Extract category
         const catMatch = block.match(/category:\s*"([^"]+)"/);
         product.category = catMatch ? catMatch[1] : 'Sin categoría';
-        
+
         // Extract price
         const priceMatch = block.match(/price:\s*(\d+)/);
         product.price = priceMatch ? parseInt(priceMatch[1]) : 0;
-        
+
         // Extract description
         const descMatch = block.match(/description:\s*"([^"]+)"/);
         product.description = descMatch ? descMatch[1] : '';
-        
+
         // Extract image
         const imgMatch = block.match(/image:\s*"([^"]+)"/);
         product.image = imgMatch ? imgMatch[1] : '';
-        
+
         // Extract stock
         const stockMatch = block.match(/stock:\s*(\d+)/);
         product.stock = stockMatch ? parseInt(stockMatch[1]) : 0;
-        
+
         // Extract wholesalePrices if exists
-        const wpMatch = block.match(/wholesalePrices:\s*\[([\s\S]*?)\]/);
+        // Regex improved to capture until the matching array bracket
+        const wpMatch = block.match(/wholesalePrices:\s*\[([\s\S]*?)\]\s*(?=,|\n|\})/);
         if (wpMatch) {
-          const wpBlocks = wpMatch[1].match(/\{[^}]+\}/g) || [];
+          const wpContent = wpMatch[1];
+          const wpBlocks = wpContent.match(/\{[\s\S]*?\}/g) || [];
           product.wholesalePrices = wpBlocks.map(wpBlock => {
             const qtyMatch = wpBlock.match(/qty:\s*(\d+)/);
-            const priceMatch = wpBlock.match(/price:\s*(\d+)/);
+            const pMatch = wpBlock.match(/price:\s*(\d+)/);
             return {
               qty: qtyMatch ? parseInt(qtyMatch[1]) : 0,
-              price: priceMatch ? parseInt(priceMatch[1]) : 0
+              price: pMatch ? parseInt(pMatch[1]) : 0
             };
           });
         }
-        
+
         return product as Product;
       });
-      
+
       // Upload to Firebase (merge: true adds new or updates existing, doesn't delete)
       let addedCount = 0;
       for (const p of importedProducts) {
@@ -237,10 +239,8 @@ export const products: Product[] = [\n${exportData}\n];`;
         await setDoc(docRef, p, { merge: true });
         addedCount++;
       }
-      
+
       setConsoleOutput(prev => [...prev, `✓ Importados ${addedCount} productos a Firebase (no se borraron los existentes)`]);
-      
-      setConsoleOutput(prev => [...prev, `✓ Importados ${importedProducts.length} productos a Firebase`]);
       setShowImportModal(false);
       setImportText('');
       loadProducts();
@@ -308,7 +308,7 @@ export const products: Product[] = [\n${exportData}\n];`;
     return String(val);
   };
 
-  const filteredProducts = products.filter(p => 
+  const filteredProducts = products.filter(p =>
     p.name.toLowerCase().includes(filter.toLowerCase()) ||
     p.category.toLowerCase().includes(filter.toLowerCase())
   );
@@ -359,11 +359,10 @@ export const products: Product[] = [\n${exportData}\n];`;
 
       {/* Message */}
       {message && (
-        <div className={`fixed top-20 right-4 px-6 py-3 rounded-xl shadow-lg z-50 ${
-          message.type === 'success' 
-            ? 'bg-green-500/20 border border-green-500/50 text-green-200' 
-            : 'bg-red-500/20 border border-red-500/50 text-red-200'
-        }`}>
+        <div className={`fixed top-20 right-4 px-6 py-3 rounded-xl shadow-lg z-50 ${message.type === 'success'
+          ? 'bg-green-500/20 border border-green-500/50 text-green-200'
+          : 'bg-red-500/20 border border-red-500/50 text-red-200'
+          }`}>
           {message.text}
         </div>
       )}
@@ -474,11 +473,10 @@ export const products: Product[] = [
       <div className="max-w-7xl mx-auto px-4 pb-12">
         <div className="grid gap-4">
           {filteredProducts.map(product => (
-            <div 
+            <div
               key={product.id}
-              className={`glass bg-white/5 border border-white/10 rounded-2xl overflow-hidden transition-all ${
-                editingId === product.id ? 'ring-2 ring-purple-500/50' : ''
-              }`}
+              className={`glass bg-white/5 border border-white/10 rounded-2xl overflow-hidden transition-all ${editingId === product.id ? 'ring-2 ring-purple-500/50' : ''
+                }`}
             >
               {editingId === product.id ? (
                 // Edit Mode
@@ -486,8 +484,8 @@ export const products: Product[] = [
                   <div className="flex gap-6">
                     {/* Image */}
                     <div className="w-32 h-32 shrink-0">
-                      <img 
-                        src={product.image} 
+                      <img
+                        src={product.image}
                         alt={product.name}
                         className="w-full h-full object-contain mix-blend-multiply"
                       />
@@ -624,8 +622,8 @@ export const products: Product[] = [
               ) : (
                 // View Mode
                 <div className="p-4 flex items-center gap-4">
-                  <img 
-                    src={product.image} 
+                  <img
+                    src={product.image}
                     alt={product.name}
                     className="w-16 h-16 object-contain mix-blend-multiply rounded-xl bg-white/10"
                   />
