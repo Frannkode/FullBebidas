@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { products as initialProducts } from './data';
 import { CartItem, Product } from './types';
 import ProductCard from './components/ProductCard';
@@ -52,9 +52,25 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', handleScroll);
+    const handleScroll = () => {
+      // Use a more efficient check to avoid excessive state updates
+      const isScrolled = window.scrollY > 20;
+      setScrolled(prev => {
+        if (prev !== isScrolled) return isScrolled;
+        return prev;
+      });
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Sync state with back/forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      setShowAdmin(window.location.pathname === '/admin');
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   const handleAdminLogin = () => {
@@ -70,8 +86,8 @@ const App: React.FC = () => {
     window.history.pushState({}, '', '/');
   };
 
-  const categories = ['Todos', ...Array.from(new Set(products.map(p => p.category)))];
-  const uniqueCategories = Array.from(new Set(products.map(p => p.category)));
+  const categories = useMemo(() => ['Todos', ...Array.from(new Set(products.map(p => p.category)))], [products]);
+  const uniqueCategories = useMemo(() => Array.from(new Set(products.map(p => p.category))), [products]);
 
   const addToCart = (product: Product) => {
     setCartItems(prev => {
@@ -94,13 +110,16 @@ const App: React.FC = () => {
     );
   };
 
-  const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'Todos' || p.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredProducts = useMemo(() => {
+    const searchLower = searchTerm.toLowerCase();
+    return products.filter(p => {
+      const matchesSearch = p.name.toLowerCase().includes(searchLower);
+      const matchesCategory = selectedCategory === 'Todos' || p.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [products, searchTerm, selectedCategory]);
 
-  const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+  const cartCount = useMemo(() => cartItems.reduce((acc, item) => acc + item.quantity, 0), [cartItems]);
 
   // Helper to check if we are in "Browse Mode" (No search, viewing All)
   const isBrowseMode = selectedCategory === 'Todos' && !searchTerm;

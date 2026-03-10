@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Product, WholesalePrice } from '../types';
 import { getProducts, updateProduct, initializeProducts } from '../firebase/products';
 import { products as initialProducts } from '../data';
@@ -308,10 +308,13 @@ export const products: Product[] = [\n${exportData}\n];`;
     return String(val);
   };
 
-  const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(filter.toLowerCase()) ||
-    p.category.toLowerCase().includes(filter.toLowerCase())
-  );
+  const filteredProducts = useMemo(() => {
+    const searchLower = filter.toLowerCase();
+    return products.filter(p =>
+      p.name.toLowerCase().includes(searchLower) ||
+      p.category.toLowerCase().includes(searchLower)
+    );
+  }, [products, filter]);
 
   if (loading) {
     return (

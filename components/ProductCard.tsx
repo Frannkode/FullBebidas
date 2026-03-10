@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Product } from '../types';
 import { hasWholesale, isLowStock } from '../utils/pricing';
 
@@ -10,14 +10,14 @@ interface ProductCardProps {
 const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
   const [imgSrc, setImgSrc] = useState(product.image);
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(price);
-  };
+  const priceFormatter = useMemo(() => new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }), []);
+
+  const formatPrice = (price: number) => priceFormatter.format(price);
 
   return (
     <div className="group relative rounded-2xl p-2.5 transition-all duration-500 hover:-translate-y-1 flex flex-col h-full glass overflow-hidden hover:shadow-xl hover:shadow-blue-500/10 hover:border-white/80">
@@ -27,7 +27,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
 
       {/* Category Badge */}
       <div className="absolute top-2.5 left-2.5 z-10">
-        <span className="px-2 py-0.5 bg-white/60 backdrop-blur-md rounded-md text-[8px] font-extrabold uppercase tracking-widest text-brand-primary shadow-sm border border-white/50">
+        <span className="px-2 py-0.5 bg-white/80 rounded-md text-[8px] font-extrabold uppercase tracking-widest text-brand-primary shadow-sm border border-white/50">
           {product.category}
         </span>
         <div className="mt-1 flex gap-1">
