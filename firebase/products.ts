@@ -35,7 +35,7 @@ export async function getProducts(): Promise<Product[]> {
     })) as Product[];
   } catch (error) {
     console.error('Error getting products:', error);
-    return [];
+    throw error;
   }
 }
 

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { products as initialProducts } from './data';
 import { CartItem, Product } from './types';
 import ProductCard from './components/ProductCard';
 import CartSidebar from './components/CartSidebar';
@@ -10,8 +9,9 @@ import AdminPanel from './components/AdminPanel';
 import { getProducts, initializeProducts } from './firebase/products';
 
 const App: React.FC = () => {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -35,18 +35,26 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Load products from Firebase
   useEffect(() => {
     const loadProducts = async () => {
-      const dbProducts = await getProducts();
-      if (dbProducts.length > 0) {
-        setProducts(dbProducts);
-      } else {
-        // Initialize with data.ts products
-        await initializeProducts(initialProducts);
-        setProducts(initialProducts);
+      try {
+        setLoading(true);
+        setError(null);
+        const dbProducts = await getProducts();
+        if (dbProducts.length === 0) {
+          // Double check if it was really empty or a permission error
+          // We can't easily tell from the catch in firebase/products.ts as it returns []
+          // But for now let's just set it.
+          setProducts([]);
+        } else {
+          setProducts(dbProducts);
+        }
+      } catch (err) {
+        console.error("Fetch error:", err);
+        setError("Error al cargar productos. Por favor verifica los permisos de Firebase.");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     loadProducts();
   }, []);
@@ -130,6 +138,34 @@ const App: React.FC = () => {
       return <AdminLogin onLogin={handleAdminLogin} />;
     }
     return <AdminPanel onLogout={handleAdminLogout} />;
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-300 via-pink-300 to-red-400 flex items-center justify-center p-6">
+        <div className="glass p-8 rounded-3xl max-w-md w-full text-center shadow-2xl">
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-slate-800 mb-4">¡Ups! Algo salió mal</h2>
+          <p className="text-slate-600 mb-8 leading-relaxed">
+            {error}
+          </p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="w-full py-4 bg-brand-primary text-white rounded-2xl font-bold hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg"
+          >
+            Reintentar
+          </button>
+          <p className="mt-6 text-xs text-slate-400">
+            Asegúrate de que las reglas de Firestore permitan la lectura.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   // Loading state

@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Product, WholesalePrice } from '../types';
 import { getProducts, updateProduct, initializeProducts } from '../firebase/products';
-import { products as initialProducts } from '../data';
-import { TrashIcon, PlusIcon, SaveIcon, RefreshIcon, TerminalIcon, XMarkIcon } from './Icons';
+import { TrashIcon, PlusIcon, SaveIcon, RefreshIcon, XMarkIcon } from './Icons';
 import { db } from '../firebase/config';
 import { collection, addDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
 
@@ -17,237 +16,65 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
-  const [showConsole, setShowConsole] = useState(false);
-  const [consoleOutput, setConsoleOutput] = useState<string[]>([]);
-  const [consoleInput, setConsoleInput] = useState('');
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [importText, setImportText] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     loadProducts();
   }, []);
 
-  const loadProducts = async (forceReinit = false) => {
-    setLoading(true);
-    const dbProducts = await getProducts();
-    if (dbProducts.length > 0 && !forceReinit) {
-      setProducts(dbProducts);
-    } else {
-      // Initialize with data.ts products
-      await initializeProducts(initialProducts);
-      const freshProducts = await getProducts();
-      setProducts(freshProducts.length > 0 ? freshProducts : initialProducts);
-    }
-    setLoading(false);
-  };
-
-  // Console functions
-  const addProduct = async (product: Product) => {
+  const loadProducts = async () => {
     try {
-      const docRef = await addDoc(collection(db, 'products'), product);
-      setConsoleOutput(prev => [...prev, `✓ Producto agregado: ${product.name} (ID: ${docRef.id})`]);
-      loadProducts();
-    } catch (e: any) {
-      setConsoleOutput(prev => [...prev, `✗ Error: ${e.message}`]);
+      setLoading(true);
+      setError(null);
+      const dbProducts = await getProducts();
+      setProducts(dbProducts || []);
+    } catch (err: any) {
+      console.error("Load products error:", err);
+      setError(err.message || "Error al cargar productos");
+      setMessage({ type: 'error', text: 'Error de permisos de Firebase' });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const deleteProduct = async (productId: number) => {
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProductForm.name || !newProductForm.category || !newProductForm.price) {
+      setMessage({ type: 'error', text: 'Nombre, categoría y precio son obligatorios' });
+      return;
+    }
+
+    setSaving(true);
     try {
-      const q = collection(db, 'products');
-      const snapshot = await getProducts();
-      const toDelete = snapshot.find(p => p.id === productId);
-      if (toDelete) {
-        await deleteDoc(doc(db, 'products', `product_${productId}`));
-        setConsoleOutput(prev => [...prev, `✓ Producto ID ${productId} eliminado`]);
-        loadProducts();
-      }
+      const id = Date.now();
+      const productData: Product = {
+        id,
+        name: newProductForm.name,
+        category: newProductForm.category,
+        price: Number(newProductForm.price),
+        description: newProductForm.description || 'Nuevo producto',
+        image: '/drinks/placeholder.jpeg', // Imagen por defecto como pidió el usuario
+        stock: Number(newProductForm.stock || 0),
+        wholesalePrices: newProductForm.wholesalePrices || []
+      };
+
+      const docRef = doc(db, 'products', `product_${id}`);
+      await setDoc(docRef, productData);
+      
+      setProducts(prev => [...prev, productData]);
+      setMessage({ type: 'success', text: 'Producto creado correctamente' });
+      setShowAddModal(false);
+      setNewProductForm({});
+      setTimeout(() => setMessage(null), 3000);
     } catch (e: any) {
-      setConsoleOutput(prev => [...prev, `✗ Error: ${e.message}`]);
+      setMessage({ type: 'error', text: `Error al crear: ${e.message}` });
     }
+    setSaving(false);
   };
 
-  const runCommand = async () => {
-    if (!consoleInput.trim()) return;
-
-    setConsoleOutput(prev => [...prev, `> ${consoleInput}`]);
-    const input = consoleInput.trim().toLowerCase();
-    setConsoleInput('');
-
-    try {
-      // Parse simple commands
-      if (input.startsWith('add ')) {
-        // add {name} {price} {category}
-        const parts = input.slice(4).split(' ');
-        if (parts.length >= 3) {
-          const name = parts.slice(0, -2).join(' ');
-          const price = parseInt(parts[parts.length - 2]);
-          const category = parts[parts.length - 1];
-          const newProduct: Product = {
-            id: Date.now(),
-            name,
-            price,
-            category,
-            description: 'Nuevo producto',
-            image: '/drinks/placeholder.jpeg',
-            stock: 0
-          };
-          await addProduct(newProduct);
-        } else {
-          setConsoleOutput(prev => [...prev, 'Usage: add {name} {price} {category}']);
-        }
-      } else if (input === 'list') {
-        const allProducts = await getProducts();
-        setConsoleOutput(prev => [...prev, `Productos (${allProducts.length}):`, ...allProducts.map(p => `  - ${p.id}: ${p.name} (${p.price})`)]);
-      } else if (input.startsWith('delete ')) {
-        const id = parseInt(input.slice(7));
-        if (!isNaN(id)) {
-          await deleteProduct(id);
-        } else {
-          setConsoleOutput(prev => [...prev, 'Usage: delete {id}']);
-        }
-      } else if (input === 'help') {
-        setConsoleOutput(prev => [...prev,
-          'Comandos disponibles:',
-          '  add {name} {price} {category} - Agregar producto',
-          '  list - Listar productos',
-          '  delete {id} - Eliminar producto',
-          '  clear - Limpiar consola',
-          '  help - Mostrar ayuda'
-        ]);
-      } else if (input === 'clear') {
-        setConsoleOutput([]);
-      } else {
-        setConsoleOutput(prev => [...prev, `Comando desconocido: ${input}. Escribe "help" para ver comandos.`]);
-      }
-    } catch (e: any) {
-      setConsoleOutput(prev => [...prev, `✗ Error: ${e.message}`]);
-    }
-  };
-
-  // Export products to data.ts format
-  const exportProducts = async () => {
-    const dbProducts = await getProducts();
-    const exportData = dbProducts.map(p => `  {
-    id: ${p.id},
-    name: "${p.name}",
-    category: "${p.category}",
-    price: ${p.price},
-    description: "${p.description}",
-    image: "${p.image}",
-    stock: ${p.stock ?? 0}${p.wholesalePrices && p.wholesalePrices.length > 0 ? `,
-    wholesalePrices: [
-${p.wholesalePrices.map(wp => `      { qty: ${wp.qty}, price: ${wp.price} }`).join(',\n')}
-    ]` : ''}
-  }`).join(',\n');
-
-    const fileContent = `import { Product } from './types';
-
-export const products: Product[] = [\n${exportData}\n];`;
-
-    const blob = new Blob([fileContent], { type: 'text/typescript' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'data.ts';
-    a.click();
-    URL.revokeObjectURL(url);
-    setConsoleOutput(prev => [...prev, `✓ Exportado ${dbProducts.length} productos a data.ts`]);
-  };
-
-  // Add single product to Firebase
-  const addProductToFirebase = async (product: Product) => {
-    try {
-      const docRef = doc(db, 'products', `product_${product.id}`);
-      await setDoc(docRef, product);
-      setConsoleOutput(prev => [...prev, `✓ Producto agregado: ${product.name}`]);
-      loadProducts();
-    } catch (e: any) {
-      setConsoleOutput(prev => [...prev, `✗ Error: ${e.message}`]);
-    }
-  };
-
-  // Import products from data.ts text
-  const importProducts = async () => {
-    try {
-      // Parse the products array from the text
-      const productsMatch = importText.match(/export\s+const\s+products:\s*Product\[\]\s*=\s*\[([\s\S]*)\];/);
-      if (!productsMatch) {
-        setConsoleOutput(prev => [...prev, '✗ No se encontró el array de productos']);
-        return;
-      }
-
-      const productsText = productsMatch[1];
-      // Simple parsing - find each product block
-      const productBlocks = productsText.match(/\{[\s\S]*?id:\s*\d+,[\s\S]*?\}/g) || [];
-
-      const importedProducts: Product[] = productBlocks.map(block => {
-        const product: any = {};
-
-        // Extract id
-        const idMatch = block.match(/id:\s*(\d+)/);
-        product.id = idMatch ? parseInt(idMatch[1]) : Date.now();
-
-        // Extract name
-        const nameMatch = block.match(/name:\s*"([^"]+)"/);
-        product.name = nameMatch ? nameMatch[1] : 'Sin nombre';
-
-        // Extract category
-        const catMatch = block.match(/category:\s*"([^"]+)"/);
-        product.category = catMatch ? catMatch[1] : 'Sin categoría';
-
-        // Extract price
-        const priceMatch = block.match(/price:\s*(\d+)/);
-        product.price = priceMatch ? parseInt(priceMatch[1]) : 0;
-
-        // Extract description
-        const descMatch = block.match(/description:\s*"([^"]+)"/);
-        product.description = descMatch ? descMatch[1] : '';
-
-        // Extract image
-        const imgMatch = block.match(/image:\s*"([^"]+)"/);
-        product.image = imgMatch ? imgMatch[1] : '';
-
-        // Extract stock
-        const stockMatch = block.match(/stock:\s*(\d+)/);
-        product.stock = stockMatch ? parseInt(stockMatch[1]) : 0;
-
-        // Extract wholesalePrices if exists
-        // Regex improved to capture until the matching array bracket
-        const wpMatch = block.match(/wholesalePrices:\s*\[([\s\S]*?)\]\s*(?=,|\n|\})/);
-        if (wpMatch) {
-          const wpContent = wpMatch[1];
-          const wpBlocks = wpContent.match(/\{[\s\S]*?\}/g) || [];
-          product.wholesalePrices = wpBlocks.map(wpBlock => {
-            const qtyMatch = wpBlock.match(/qty:\s*(\d+)/);
-            const pMatch = wpBlock.match(/price:\s*(\d+)/);
-            return {
-              qty: qtyMatch ? parseInt(qtyMatch[1]) : 0,
-              price: pMatch ? parseInt(pMatch[1]) : 0
-            };
-          });
-        }
-
-        return product as Product;
-      });
-
-      // Upload to Firebase (merge: true adds new or updates existing, doesn't delete)
-      let addedCount = 0;
-      for (const p of importedProducts) {
-        const docRef = doc(db, 'products', `product_${p.id}`);
-        await setDoc(docRef, p, { merge: true });
-        addedCount++;
-      }
-
-      setConsoleOutput(prev => [...prev, `✓ Importados ${addedCount} productos a Firebase (no se borraron los existentes)`]);
-      setShowImportModal(false);
-      setImportText('');
-      loadProducts();
-    } catch (e: any) {
-      setConsoleOutput(prev => [...prev, `✗ Error: ${e.message}`]);
-    }
-  };
+  const [newProductForm, setNewProductForm] = useState<Partial<Product>>({});
 
   const handleEdit = (product: Product) => {
     setEditingId(product.id);
@@ -324,6 +151,26 @@ export const products: Product[] = [\n${exportData}\n];`;
     );
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-center">
+        <div className="max-w-md w-full glass p-8 rounded-3xl border border-red-500/30">
+          <h2 className="text-2xl font-bold text-red-500 mb-4">Error de Firebase</h2>
+          <p className="text-white/70 mb-8">{error}</p>
+          <button 
+            onClick={() => loadProducts()}
+            className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold transition-all"
+          >
+            Reintentar
+          </button>
+          <p className="mt-4 text-xs text-white/40 italic">
+            Verifica que las reglas de seguridad de Firestore permitan el acceso.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       {/* Header */}
@@ -339,16 +186,11 @@ export const products: Product[] = [\n${exportData}\n];`;
               <RefreshIcon className="w-5 h-5 text-white" />
             </button>
             <button
-              onClick={() => exportProducts()}
-              className="px-3 py-1.5 bg-yellow-500/20 border border-yellow-500/50 text-yellow-200 rounded-lg text-xs hover:bg-yellow-500/30 transition-colors"
+              onClick={() => setShowAddModal(true)}
+              className="px-4 py-2 bg-green-500/20 border border-green-500/50 text-green-200 rounded-lg text-sm hover:bg-green-500/30 transition-colors flex items-center gap-2"
             >
-              Exportar data.ts
-            </button>
-            <button
-              onClick={() => setShowImportModal(true)}
-              className="px-3 py-1.5 bg-blue-500/20 border border-blue-500/50 text-blue-200 rounded-lg text-xs hover:bg-blue-500/30 transition-colors"
-            >
-              Importar data.ts
+              <PlusIcon className="w-4 h-4" />
+              Nuevo Producto
             </button>
           </div>
           <button
@@ -370,96 +212,169 @@ export const products: Product[] = [\n${exportData}\n];`;
         </div>
       )}
 
-      {/* Import Modal */}
-      {showImportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-slate-900 border border-slate-600 rounded-xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700">
-              <h2 className="text-white font-bold">Importar productos desde data.ts</h2>
-              <button onClick={() => setShowImportModal(false)} className="text-slate-400 hover:text-white">
-                <XMarkIcon className="w-5 h-5" />
+      {/* Add Product Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+              <h2 className="text-xl font-bold text-white">Nuevo Producto</h2>
+              <button 
+                onClick={() => {
+                  setShowAddModal(false);
+                  setNewProductForm({});
+                }} 
+                className="text-white/40 hover:text-white transition-colors"
+              >
+                <XMarkIcon className="w-6 h-6" />
               </button>
             </div>
-            <div className="p-4 overflow-auto max-h-[60vh]">
-              <p className="text-slate-400 text-sm mb-2">Copiá el contenido de tu archivo data.ts y pegalo aquí:</p>
-              <textarea
-                value={importText}
-                onChange={(e) => setImportText(e.target.value)}
-                placeholder={`import { Product } from './types';
+            
+            <form onSubmit={handleCreate} className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-white/60 text-xs mb-1 uppercase font-bold tracking-wider">Nombre</label>
+                  <input
+                    type="text"
+                    required
+                    value={newProductForm.name || ''}
+                    onChange={(e) => setNewProductForm(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-white/60 text-xs mb-1 uppercase font-bold tracking-wider">Categoría</label>
+                  <select
+                    required
+                    value={newProductForm.category || ''}
+                    onChange={(e) => setNewProductForm(prev => ({ ...prev, category: e.target.value }))}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  >
+                    <option value="" disabled className="text-black">Seleccionar...</option>
+                    <option className="text-black" value="Cervezas">Cervezas</option>
+                    <option className="text-black" value="Aperitivos">Aperitivos</option>
+                    <option className="text-black" value="Vodkas">Vodkas</option>
+                    <option className="text-black" value="Vinos">Vinos</option>
+                    <option className="text-black" value="Combos">Combos</option>
+                  </select>
+                </div>
+              </div>
 
-export const products: Product[] = [
-  {
-    id: 1,
-    name: "Producto",
-    ...
-  }
-];`}
-                className="w-full h-64 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-green-400 font-mono text-xs resize-none"
-              />
-            </div>
-            <div className="flex justify-end gap-2 px-4 py-3 border-t border-slate-700">
-              <button
-                onClick={() => setShowImportModal(false)}
-                className="px-4 py-2 bg-slate-700 text-white rounded-lg text-sm hover:bg-slate-600"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={importProducts}
-                disabled={!importText.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-500 disabled:opacity-50"
-              >
-                Importar a Firebase
-              </button>
-            </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-white/60 text-xs mb-1 uppercase font-bold tracking-wider">Precio Minorista</label>
+                  <input
+                    type="number"
+                    required
+                    value={newProductForm.price || ''}
+                    onChange={(e) => setNewProductForm(prev => ({ ...prev, price: Number(e.target.value) }))}
+                    placeholder="2000"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-white/60 text-xs mb-1 uppercase font-bold tracking-wider">Stock Inicial</label>
+                  <input
+                    type="number"
+                    value={newProductForm.stock || ''}
+                    onChange={(e) => setNewProductForm(prev => ({ ...prev, stock: Number(e.target.value) }))}
+                    placeholder="12"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-white/60 text-xs mb-1 uppercase font-bold tracking-wider">Descripción</label>
+                <textarea
+                  value={newProductForm.description || ''}
+                  onChange={(e) => setNewProductForm(prev => ({ ...prev, description: e.target.value }))}
+                  rows={2}
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white resize-none focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  placeholder="Descripción breve del producto..."
+                />
+              </div>
+
+              {/* Wholesale Prices for New Product */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-white/60 text-xs uppercase font-bold tracking-wider">Precios Mayoristas</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentWP = newProductForm.wholesalePrices || [];
+                      setNewProductForm(prev => ({ ...prev, wholesalePrices: [...currentWP, { qty: 6, price: 0 }] }));
+                    }}
+                    className="flex items-center gap-1 px-2 py-1 bg-green-500/20 border border-green-500/50 text-green-200 rounded-lg text-xs hover:bg-green-500/30 transition-colors"
+                  >
+                    <PlusIcon className="w-3 h-3" />
+                    Agregar
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {(newProductForm.wholesalePrices || []).map((wp, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        placeholder="Qty"
+                        value={wp.qty || ''}
+                        onChange={(e) => {
+                          const newWP = [...(newProductForm.wholesalePrices || [])];
+                          newWP[index] = { ...newWP[index], qty: Number(e.target.value) };
+                          setNewProductForm(prev => ({ ...prev, wholesalePrices: newWP }));
+                        }}
+                        className="w-24 px-2 py-1 bg-white/5 border border-white/10 rounded-lg text-white text-sm"
+                      />
+                      <span className="text-white/40">x</span>
+                      <input
+                        type="number"
+                        placeholder="Precio total"
+                        value={wp.price || ''}
+                        onChange={(e) => {
+                          const newWP = [...(newProductForm.wholesalePrices || [])];
+                          newWP[index] = { ...newWP[index], price: Number(e.target.value) };
+                          setNewProductForm(prev => ({ ...prev, wholesalePrices: newWP }));
+                        }}
+                        className="flex-1 px-2 py-1 bg-white/5 border border-white/10 rounded-lg text-white text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newWP = [...(newProductForm.wholesalePrices || [])];
+                          newWP.splice(index, 1);
+                          setNewProductForm(prev => ({ ...prev, wholesalePrices: newWP }));
+                        }}
+                        className="p-1 bg-red-500/20 border border-red-500/50 text-red-200 rounded-lg hover:bg-red-500/30"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-white/10">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex-1 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold transition-all disabled:opacity-50 shadow-lg shadow-purple-500/20"
+                >
+                  {saving ? 'Guardando...' : 'Crear Producto'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddModal(false);
+                    setNewProductForm({});
+                  }}
+                  className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl transition-all"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
-
-      {/* Console Panel */}
-      <div className={`fixed bottom-4 right-4 z-50 transition-all ${showConsole ? 'w-96' : 'w-auto'}`}>
-        {!showConsole ? (
-          <button
-            onClick={() => setShowConsole(true)}
-            className="p-3 bg-slate-800 border border-slate-600 rounded-full text-white hover:bg-slate-700 transition-colors"
-            title="Abrir consola"
-          >
-            <TerminalIcon className="w-5 h-5" />
-          </button>
-        ) : (
-          <div className="bg-slate-900 border border-slate-600 rounded-xl overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between px-3 py-2 bg-slate-800 border-b border-slate-700">
-              <span className="text-xs font-mono text-green-400">Console Firebase</span>
-              <button onClick={() => setShowConsole(false)} className="text-slate-400 hover:text-white">
-                <XMarkIcon className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="h-48 overflow-y-auto p-2 font-mono text-xs">
-              {consoleOutput.map((line, i) => (
-                <div key={i} className={`mb-1 ${line.startsWith('✓') ? 'text-green-400' : line.startsWith('✗') ? 'text-red-400' : line.startsWith('>') ? 'text-yellow-400' : 'text-slate-300'}`}>
-                  {line}
-                </div>
-              ))}
-            </div>
-            <div className="flex border-t border-slate-700">
-              <input
-                type="text"
-                value={consoleInput}
-                onChange={(e) => setConsoleInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && runCommand()}
-                placeholder="Comando (help para ver)"
-                className="flex-1 px-3 py-2 bg-transparent text-white text-xs font-mono placeholder:text-slate-500 focus:outline-none"
-              />
-              <button
-                onClick={runCommand}
-                className="px-3 py-2 bg-green-600 text-white text-xs hover:bg-green-500"
-              >
-                &#9654;
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
 
       {/* Search */}
       <div className="max-w-7xl mx-auto px-4 py-6">
