@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Product } from '../types';
-import { hasWholesale, isLowStock } from '../utils/pricing';
+import { hasWholesale, isLowStock, isOutOfStock } from '../utils/pricing';
 
 interface ProductCardProps {
   product: Product;
@@ -31,7 +31,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
           {product.category}
         </span>
         <div className="mt-1 flex gap-1">
-          {isLowStock(product) && (
+          {isOutOfStock(product) ? (
+            <span className="px-1 py-0.5 text-[9px] bg-slate-100 text-slate-500 rounded font-bold">Sin stock</span>
+          ) : isLowStock(product) && (
             <span className="px-1 py-0.5 text-[9px] bg-red-100 text-red-700 rounded font-bold">Últimas unidades</span>
           )}
           {hasWholesale(product) && (
@@ -52,6 +54,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
         />
         
         {/* Floating Add Button */}
+        {!isOutOfStock(product) && (
         <button 
           onClick={(e) => {
             e.stopPropagation();
@@ -63,6 +66,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
         </button>
+        )}
       </div>
 
       {/* Info */}
@@ -88,12 +92,18 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
             )}
           </div>
           {/* Mobile Fallback Button */}
+          {!isOutOfStock(product) ? (
           <button 
             onClick={() => onAddToCart(product)}
             className="md:hidden text-[9px] font-bold text-brand-primary uppercase tracking-wide bg-blue-50 px-2 py-1 rounded"
           >
             + Agregar
           </button>
+          ) : (
+          <span className="md:hidden text-[9px] font-bold text-slate-400 uppercase tracking-wide bg-slate-50 px-2 py-1 rounded">
+            Agotado
+          </span>
+          )}
         </div>
       </div>
     </div>

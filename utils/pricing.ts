@@ -21,7 +21,11 @@ export function hasWholesale(p: Product): boolean {
 }
 
 export function isLowStock(p: Product, threshold = 12): boolean {
-  return typeof p.stock === 'number' && p.stock <= threshold;
+  return typeof p.stock === 'number' && p.stock > 0 && p.stock <= threshold;
+}
+
+export function isOutOfStock(p: Product): boolean {
+  return typeof p.stock === 'number' && p.stock <= 0;
 }
 
 // Calcula el mejor precio total para `qty` unidades usando combos de paquetes y unidades sueltas.
@@ -120,5 +124,6 @@ export default {
   computeBestPrice,
   suggestedUnitPrice,
   hasWholesale,
-  isLowStock
+  isLowStock,
+  isOutOfStock
 };

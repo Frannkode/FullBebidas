@@ -98,9 +98,14 @@ const App: React.FC = () => {
   const uniqueCategories = useMemo(() => Array.from(new Set(products.map(p => p.category))), [products]);
 
   const addToCart = (product: Product) => {
+    if (typeof product.stock === 'number' && product.stock <= 0) return;
+
     setCartItems(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
+        if (typeof product.stock === 'number' && existing.quantity >= product.stock) {
+          return prev;
+        }
         return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
       }
       return [...prev, { ...product, quantity: 1 }];
@@ -113,7 +118,17 @@ const App: React.FC = () => {
 
   const updateQuantity = (id: number, delta: number) => {
     setCartItems(prev => prev
-      .map(item => item.id === id ? { ...item, quantity: item.quantity + delta } : item)
+      .map(item => {
+        if (item.id === id) {
+          const newQuantity = item.quantity + delta;
+          if (typeof item.stock === 'number' && newQuantity > item.stock) {
+            alert(`Solo hay ${item.stock} unidades disponibles de ${item.name}`);
+            return item;
+          }
+          return { ...item, quantity: newQuantity };
+        }
+        return item;
+      })
       .filter(item => item.quantity > 0)
     );
   };
